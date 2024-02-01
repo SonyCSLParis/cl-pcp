@@ -44,3 +44,13 @@
   (loop for i from 1 upto (* load 1000000000)
         do (* i load)
         finally (return load)))
+
+;; For demo purposes.
+(defun use-cpu-with-kwargs (load &key symbol-key string-key number-key list-key)
+  (print symbol-key)
+  (print string-key)
+  (print number-key)
+  (print list-key)
+  (loop for i from 1 upto (* load 1000000000)
+        do (* i load)
+        finally (return load)))

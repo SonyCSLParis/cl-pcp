@@ -30,6 +30,9 @@
 (defparameter *process-fn* nil
   "The name of the client process.")
 
+(defparameter *process-fn-kwargs* nil
+  "The keyword arguments of the client process.")
+
 (defparameter *write-fn* nil
   "The name of the client process.")
 
@@ -48,6 +51,7 @@
 (defun initialise-process (&key lock-file
                                 output-file
                                 process-fn
+                                process-fn-kwargs
                                 write-fn
                                 keep-order)
   "Initialises the cl-pcp client process by setting the relevant global variables."
@@ -55,15 +59,19 @@
   (setf *lock-file* lock-file
         *output-file* output-file
         *process-fn* process-fn
+        *process-fn-kwargs* process-fn-kwargs
         *write-fn* write-fn
         *keep-order* keep-order)
   (delete-file *lock-file*)
-  (format nil "Process initialised with lock-file: ~s, temporary output-file: ~s, process-fn: ~a, write-fn: ~a and keep-order: ~a."
-          lock-file output-file process-fn write-fn keep-order))
+  (format nil "Process initialised with lock-file: ~s, temporary output-file: ~s, process-fn: ~a, process-fn-kwargs: ~a, write-fn: ~a and keep-order: ~a."
+          lock-file output-file process-fn process-fn-kwargs write-fn keep-order))
 
 (defun run (item-nr input)
   "Runs the client process for input."
-  (let* ((processed-input (funcall *process-fn* input)))
+  (let* ((processed-input
+          (if (null *process-fn-kwargs*)
+            (funcall *process-fn* input)
+            (apply *process-fn* input *process-fn-kwargs*))))
     ;; Now write the output
     (with-open-file (stream *output-file* :direction :output :if-does-not-exist :create :if-exists :append)
       (if *keep-order*

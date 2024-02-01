@@ -66,6 +66,7 @@
    (lock-file :accessor lock-file :initarg :lock-file :initform nil)
    (output-file :accessor output-file :initarg :output-file :initform nil)
    (process-fn-name :accessor process-fn :initarg :process-fn :initform 'identity)
+   (process-fn-kwargs :accessor process-fn-kwargs :initarg :process-fn-kwargs :initform nil)
    (write-fn-name :accessor write-fn :initarg :write-fn :initform 'write-line-to-file)
    (keep-order :accessor keep-order :initarg :keep-order :initform nil))
   (:documentation "Class representing client process."))
@@ -131,12 +132,32 @@
   (when (probe-file (lock-file client-process))
     (delete-file (lock-file client-process))))
 
+(defun format-kwargs-list (kwargs)
+  "Helper function for formatting the keyword
+   arguments passed to the client function.
+   Keyword arguments should be formatted as
+   (:key value) where value can be another keyword,
+   a symbol, a string, or a list of any of the
+   these elements."
+  (loop for elem in kwargs
+        collect
+          (cond ((keywordp elem)
+                 (format nil ":~a" elem))
+                ((symbolp elem)
+                 (format nil "~a::~a" (package-name (symbol-package elem)) elem))
+                ((stringp elem)
+                 (format nil "\"~a\"" elem))
+                ((listp elem)
+                 (format-kwargs-list elem))
+                (t elem))))
+
 (defun spawn-client-process (&key (id (intern (symbol-name (gensym "CLIENT-PROCESS-"))))
                                   (external-lisp *external-lisp*)
                                   asdf-systems
                                   lock-file
                                   output-file
                                   (process-fn 'identity)
+                                  process-fn-kwargs
                                   (write-fn 'write-line-to-file)
                                   keep-order)
   "Starts up a client-process and intialises it."
@@ -147,6 +168,7 @@
                                        :lock-file lock-file
                                        :output-file output-file
                                        :process-fn process-fn
+                                       :process-fn-kwargs process-fn-kwargs
                                        :write-fn write-fn
                                        :keep-order keep-order)))
     ;; check it
@@ -162,9 +184,10 @@
     (write-to-client-process client-process "(setf cl-user::*automatically-start-web-interface* nil)")
     (write-to-client-process client-process (format nil "(load-asdf-systems '(~{~s~^ ~}))" asdf-systems))
     (write-to-client-process client-process
-                             (format nil "(initialise-process :lock-file ~s :output-file ~s :process-fn '~a :write-fn '~a :keep-order ~a)"
+                             (format nil "(initialise-process :lock-file ~s :output-file ~s :process-fn '~a :process-fn-kwargs '~a :write-fn '~a :keep-order ~a)"
                                       (lock-file client-process) (output-file client-process)
                                       (format nil "~a::~a" (package-name (symbol-package (process-fn client-process))) (process-fn client-process))
+                                      (format-kwargs-list process-fn-kwargs)
                                       (format nil "~a::~a" (package-name (symbol-package (write-fn client-process))) (write-fn client-process))
                                       (keep-order client-process)))
     client-process))
@@ -178,6 +201,7 @@
                                               (asdf-systems nil)
                                               (read-fn 'read-line-from-stream)
                                               (process-fn 'identity)
+                                              (process-fn-kwargs nil)
                                               (write-fn 'identity)
                                               (nr-of-processes 4)
                                               (keep-order nil))
@@ -189,6 +213,7 @@
                                                        :external-lisp external-lisp
                                                        :asdf-systems asdf-systems
                                                        :process-fn process-fn
+                                                       :process-fn-kwargs process-fn-kwargs
                                                        :write-fn write-fn
                                                        :keep-order keep-order))))
     (unwind-protect (progn

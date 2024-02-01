@@ -82,7 +82,19 @@
                              :process-fn 'cl-pcp::use-cpu ;; function to process each item of the corpus
                              :write-fn 'identity ;; transform the data resulting from process-fn to write away
                              :nr-of-processes 8  ;; number of subprocesses to use (do not exceed nr of cores on your machine)
-                             :keep-order t)) ;; Keep order of items in corpus 
+                             :keep-order t)) ;; Keep order of items in corpus
+
+(time
+ (process-corpus-in-parallel *benchmark-data-input-file* ;; input file with corpus
+                             *benchmark-data-output-file* ;; output file for processed corpus
+                             :external-lisp *external-lisp* ;; underlying lisp implementation to use (:lispworks :ccl :sbcl)
+                             :asdf-systems nil ;; asdf-systems to are used (to be loaded by the client processes)
+                             :read-fn 'read-from-stream ;; function to use for rading from stream connected to input file ('read-from-stream 'read-line-from-stream)
+                             :process-fn 'cl-pcp::use-cpu-with-kwargs ;; function to process each item of the corpus
+                             :process-fn-kwargs '(:symbol-key foo :string-key "bar" :number-key 5 :list-key (a "a" 5))
+                             :write-fn 'identity ;; transform the data resulting from process-fn to write away
+                             :nr-of-processes 4  ;; number of subprocesses to use (do not exceed nr of cores on your machine)
+                             :keep-order nil)) ;; Keep order of items in corpus 
 
 
 
