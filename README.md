@@ -5,7 +5,7 @@ Parallel Corpus Processing in Common Lisp. This documentation is mainly written 
 
 ## Installation and Use
 
-In order to use the :cl-pcp system, the folder cl-pcp should be moved to a place where it can be found by asdf. For use in combination with Babel, we recommend to move it to Babel’s systems folder.
+In order to use the :cl-pcp system, the folder cl-pcp should be moved to a place where it can be found by asdf. For use in combination with Babel, we recommend to move it to Babel’s systems folder. If you are using Quicklisp, you can place the cl-pcp folder in Quicklisp's local-projects. 
 
 The :cl-pcp system has been tested using Clozure Common Lisp (CCL) version 1.12 and Steel Bank Common Lisp (SBCL) version 2.0.11. The code is also expected to be compatible with LispWorks 7.1.x but has not been tested on this platform.
 A demonstration of the possibilities is included in the ﬁle demo.lisp.
@@ -15,7 +15,7 @@ A demonstration of the possibilities is included in the ﬁle demo.lisp.
 The package should be able to process a corpus in parallel. This involves reading each individual item from an input corpus ﬁle, processing it, and writing the output to an output corpus ﬁle. As all items of a corpus are independent from each other, processing can be parallelised on multi-core machines.
 :cl-pcp should be able to overcome the two main bottlenecks in Babel’s previous :corpus-processing package:
 
-* :cl-pcp should make use of subprocesses instead of threads, so that the single-threaded memory management of common lisp implementations does not form a bot-tleneck anymore.
+* :cl-pcp should make use of subprocesses instead of threads, so that the single-threaded memory management of common lisp implementations does not form a bottleneck anymore.
 * :cl-pcp should avoid a batch-based approach in which threads sometimes need to wait for each other. This is of particular importance when processing large text corpora using Fluid Construction Grammar, where it has been observed that utterances requiring long processing times are often located near each other in the corpus (due to eﬀects of same genre, origin, length, etc.).
 
 ## General Architecture
@@ -30,7 +30,8 @@ On a high-level, the :cl-pcp system operates as follows:
                             :external-lisp *external-lisp* 
                             :asdf-systems ’()
                             :read-fn ’read-from-stream 
-                            :process-fn ’identity 
+                            :process-fn ’identity
+                            :process-fn-kwargs nil
                             :write-fn ’identity 
                             :nr-of-processes 8 
                             :keep-order nil)
@@ -39,7 +40,7 @@ On a high-level, the :cl-pcp system operates as follows:
 * The cl-pcp system then makes as many client-processes as speciﬁed using the nr-of-processes key. Each client process is an independent lisp session using the lisp implementation speciﬁed by the :external-lisp key.
 * The client process is initialised by ﬁrst loading the :cl-pcp system, entering the :cl-pcp package, and loading the systems speciﬁed by the :asdf-systems key.
 * The main process then opens the input-file and applies the function speciﬁed by the :read-fn key to the resulting stream, until the end of the stream has been reached.
-* After each read operation, the result is passed to an idle client process, where the function speciﬁed by the :process-fn key is applied to it.
+* After each read operation, the result is passed to an idle client process, where the function speciﬁed by the :process-fn key is applied to it. Keyword arguments can be passed to the processing function through :process-fn-kwargs. 
 * Then, the result of the processing operation is optionally transformed by the function speciﬁed by the :write-fn key and written by the client process to an automatically created temporary output ﬁle.
 * Finally, after all items from the corpus have been processed, the output of all the client-processes is aggregated and written to output-file. If :keep-order is true, the output is guaranteed to appear in the same order as the input. This requires reading the entire corpus into memory, so it should be avoided with ﬁles that exceed the memory limit of the machine it is processed on.
 
@@ -52,6 +53,7 @@ In a call to process-corpus-in-parallel as depicted above, only input-ﬁle and 
 * :asdf-systems. A list of all asdf systems to be loaded by the client processes. Note that this should load all code that is needed to apply :process-fn and :write-fn. The default is NIL.
 * :read-fn. The function that is used to read from the stream connected to the input corpus. Takes as its only argument a stream. Typically, ’read-line-from-stream is used if each line of the input corpus should be read in as a string and ’read-from-stream is used if each element in the input corpus should be read in as an s-expression. The default is ’read-line-from-stream .
 * :process-fn. A symbol referring to the function that will be applied by the client processes to the result of the reading operations. Default is ’identity. This will essentially copy the corpus. The process function gets as its only argument the input item from the corpus and should return the processed item.
+* :process-fn-kwargs. A list of keyword arguments that are passed to the :process-fn. This list should be formatted as (:key value), where :key denotes a keyword argument of the :process-fn and value can be a keyword, a symbol, a string, a number, or a list of any of these elements.
 * :write-fn. A symbol referring to a function that is called on the result of the process-ing operation, before writing the output to the output corpus. Default is ’identity, so nothing is done. Useful if output should be encoded to a JSON string. The write function gets as its only input argument the output from the process function and should return the processed item as it should be written to the output corpus.
 * :nr-of-processes. The number of subprocesses that will be created. Typically close to the number of cores of the machine that is used. Default is 4.
 * :keep-order. If true, then the order of the items in the input corpus is kept in the output corpus. This requires loading the entire output corpus into memory. If the items in a corpus are truly independent, it is preferable to keep an id in the output format instead of relying on the order.
