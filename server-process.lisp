@@ -30,9 +30,10 @@
 (defvar *this-directory*
   (make-pathname :directory (pathname-directory (compile-truename))))
 
-(defun temp-directory ()
-  (let ((temp-directory (append (pathname-directory *this-directory*) (list ".tmp"))))
-    (ensure-directories-exist (make-pathname :directory temp-directory))
+(defun cl-pcp-temp-directory ()
+  (let ((temp-directory
+         (make-pathname :directory (append (pathname-directory *this-directory*) (list ".tmp")))))
+    (ensure-directories-exist temp-directory)
     temp-directory))
 
 ;; External Lisps ;;
@@ -68,7 +69,8 @@
    (process-fn-name :accessor process-fn :initarg :process-fn :initform 'identity)
    (process-fn-kwargs :accessor process-fn-kwargs :initarg :process-fn-kwargs :initform nil)
    (write-fn-name :accessor write-fn :initarg :write-fn :initform 'write-line-to-file)
-   (keep-order :accessor keep-order :initarg :keep-order :initform nil))
+   (keep-order :accessor keep-order :initarg :keep-order :initform nil)
+   (temp-directory :accessor temp-directory :initarg :temp-directory :initform nil))
   (:documentation "Class representing client process."))
 
 (defmethod print-object ((client-process client-process) stream)
@@ -86,11 +88,12 @@
         (t (error "The id of a client-process should be a symbol.")))
   ;; Process
   (setf (process client-process)
-        (uiop/launch-program:launch-program (cons (cdr (assoc :command (external-lisp (lisp client-process))))
-                                                  (cdr (assoc :arguments (external-lisp (lisp client-process)))))
-                                            :input :stream
-                                            :output :stream
-                                            :error-output :output))
+        (uiop/launch-program:launch-program
+         (cons (cdr (assoc :command (external-lisp (lisp client-process))))
+               (cdr (assoc :arguments (external-lisp (lisp client-process)))))
+         :input :stream
+         :output :stream
+         :error-output :output))
   ;; Reader thread
   (setf (reader-thread client-process)
         (make-thread (lambda ()
@@ -99,24 +102,24 @@
                              do (format t "~a: ~A~%" (id client-process) line)))
                      :name (format nil "Reader thread for ~a" (id client-process))))
   ;; Lock-file
-  #|
   (unless (lock-file client-process)
     (setf (lock-file client-process)
-          (make-pathname :directory (temp-directory)
-                         :name (format nil "~(~a~)-~a-~a"
-                                       (id client-process)
-                                       (get-universal-time)
-                                       (random 100))
-                         :type "lock")))
+          (merge-pathnames 
+           (make-pathname :name (format nil "~(~a~)-~a-~a"
+                                        (id client-process)
+                                        (get-universal-time)
+                                        (random 100))
+                          :type "lock")
+           (temp-directory client-process))))
   (when (probe-file (lock-file client-process))
     (delete-file (lock-file client-process)))
-  |#
   ;; Output-file
   (unless (output-file client-process)
     (setf (output-file client-process)
-          (make-pathname :directory (temp-directory)
-                         :name (format nil "~(~a~)" (id client-process))
-                         :type "out")))
+          (merge-pathnames
+           (make-pathname :name (format nil "~(~a~)" (id client-process))
+                          :type "out")
+           (temp-directory client-process))))
   (when (probe-file (output-file client-process))
     (delete-file (output-file client-process))))
 
@@ -138,12 +141,14 @@
 
 (defun lock (client-process)
   "Lock client process."
-  (let ((lock-file (make-pathname :directory (temp-directory)
-                                  :name (format nil "~(~a~)-~a-~a"
-                                                (id client-process)
-                                                (get-universal-time)
-                                                (random 100))
-                                  :type "lock")))
+  (let ((lock-file
+         (merge-pathnames 
+          (make-pathname :name (format nil "~(~a~)-~a-~a"
+                                       (id client-process)
+                                       (get-universal-time)
+                                       (random 100))
+                         :type "lock")
+          (temp-directory client-process))))
     (setf (lock-file client-process) lock-file)
     (with-open-file (stream lock-file :direction :output :if-does-not-exist :create :if-exists :supersede)
       (write (get-internal-real-time) :stream stream)
@@ -178,23 +183,21 @@
 (defun spawn-client-process (&key (id (intern (symbol-name (gensym "CLIENT-PROCESS-"))))
                                   (external-lisp *external-lisp*)
                                   asdf-systems
-                                  lock-file
-                                  output-file
                                   (process-fn 'identity)
                                   process-fn-kwargs
                                   (write-fn 'write-line-to-file)
-                                  keep-order)
+                                  keep-order
+                                  temp-directory)
   "Starts up a client-process and intialises it."
   ;; Start the client process.
   (let ((client-process (make-instance 'client-process
                                        :id id
                                        :lisp external-lisp
-                                       :lock-file lock-file
-                                       :output-file output-file
                                        :process-fn process-fn
                                        :process-fn-kwargs process-fn-kwargs
                                        :write-fn write-fn
-                                       :keep-order keep-order)))
+                                       :keep-order keep-order
+                                       :temp-directory temp-directory)))
     ;; check it
     (unless (uiop/launch-program:process-alive-p (process client-process))
       (error "Could not start client process '~a ~{~a~^ ~} :input :stream :output :stream'"
@@ -229,11 +232,13 @@
                                               (process-fn-kwargs nil)
                                               (write-fn 'identity)
                                               (nr-of-processes 4)
-                                              (keep-order nil))
+                                              (keep-order nil)
+                                              temp-directory)
   ;; Printing some information
   (format t "~%~%****************** Started Corpus Processing ******************")
   (format t "~%~%Inputfile: ~a" input-file)
   (format t "~%Outputfile: ~a" output-file)
+  (format t "~%Temp directory: ~a" (or temp-directory (cl-pcp-temp-directory)))
   (format t "~%ASDF systems: ~a" asdf-systems)
   (format t "~%Read function: ~a" read-fn)
   (format t "~%Applying function: ~a" process-fn)
@@ -251,7 +256,8 @@
                                                        :process-fn process-fn
                                                        :process-fn-kwargs process-fn-kwargs
                                                        :write-fn write-fn
-                                                       :keep-order keep-order))))
+                                                       :keep-order keep-order
+                                                       :temp-directory (or temp-directory (cl-pcp-temp-directory))))))
     (unwind-protect
         (progn
           ;; Now, open the corpus
