@@ -15,5 +15,12 @@
 
 (defpackage :cl-pcp
   (:use :cl)
-  (:export)
+  (:import-from :split-sequence
+                :split-sequence)
+  (:import-from :bordeaux-threads
+                :make-thread
+                :join-thread)
+  (:export :process-corpus-in-parallel
+           :read-from-stream
+           :read-line-from-stream)
   (:documentation "A package for parallel corpus processing."))
