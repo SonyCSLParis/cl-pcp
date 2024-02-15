@@ -16,10 +16,9 @@
 (in-package :asdf)
 
 (defsystem cl-pcp
-  :author ""
-  :maintainer ""
-  :license ""
-  :homepage ""
+  :author "Remi van Trijp (remi.vantrijp@sony.com)"
+  :license "Apache 2.0"
+  :homepage "https://github.com/SonyCSLParis/cl-pcp"
   :serial t
   :depends-on (bordeaux-threads split-sequence)
   :components ((:file "package")

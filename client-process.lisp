@@ -56,17 +56,19 @@
                                 keep-order)
   "Initialises the cl-pcp client process by setting the relevant global variables."
   ;; Set global variables
-  (setf *lock-file* lock-file
+  (setf ;*lock-file* lock-file
         *output-file* output-file
         *process-fn* process-fn
         *process-fn-kwargs* process-fn-kwargs
         *write-fn* write-fn
         *keep-order* keep-order)
-  (delete-file *lock-file*)
+  ;; Delete the lock file
+  (loop with successful = nil until successful
+        do (setf successful (delete-file lock-file)))
   (format nil "Process initialised with lock-file: ~s, temporary output-file: ~s, process-fn: ~a, process-fn-kwargs: ~a, write-fn: ~a and keep-order: ~a."
           lock-file output-file process-fn process-fn-kwargs write-fn keep-order))
 
-(defun run (item-nr input)
+(defun run (item-nr input lock-file)
   "Runs the client process for input."
   (let* ((processed-input
           (if (null *process-fn-kwargs*)
@@ -77,7 +79,10 @@
       (if *keep-order*
         (format stream "~a.~a~%" item-nr (funcall *write-fn* processed-input))
         (format stream "~a~%" (funcall *write-fn* processed-input)))
+      (force-output stream)
       (finish-output stream)))
   ;; Finally, unlock the process by deleting the lock file.
-  (delete-file *lock-file*)
+  (let ((lock-file-path (parse-namestring lock-file)))
+    (loop with successful = nil until successful
+          do (setf successful (delete-file lock-file-path))))
   (format nil "Item ~a done." item-nr))
