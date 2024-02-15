@@ -36,7 +36,8 @@
 (defun write-line-to-stream (outputstream result)
   "Writes a line to a stream and flushes."
   (format outputstream "~a~%" result)
-  (force-output outputstream))
+  (force-output outputstream)
+  (finish-output outputstream))
 
 ;; For demo purposes.
 (defun use-cpu (load)
