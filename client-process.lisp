@@ -63,8 +63,7 @@
         *write-fn* write-fn
         *keep-order* keep-order)
   ;; Delete the lock file
-  (loop with successful = nil until successful
-        do (setf successful (delete-file lock-file)))
+  (safe-delete-file lock-file)
   (format nil "Process initialised with lock-file: ~s, temporary output-file: ~s, process-fn: ~a, process-fn-kwargs: ~a, write-fn: ~a and keep-order: ~a."
           lock-file output-file process-fn process-fn-kwargs write-fn keep-order))
 
@@ -83,6 +82,5 @@
       (finish-output stream)))
   ;; Finally, unlock the process by deleting the lock file.
   (let ((lock-file-path (parse-namestring lock-file)))
-    (loop with successful = nil until successful
-          do (setf successful (delete-file lock-file-path))))
+    (safe-delete-file lock-file-path))
   (format nil "Item ~a done." item-nr))

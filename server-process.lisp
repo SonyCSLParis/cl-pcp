@@ -112,7 +112,7 @@
                           :type "lock")
            (temp-directory client-process))))
   (when (probe-file (lock-file client-process))
-    (delete-file (lock-file client-process)))
+    (safe-delete-file (lock-file client-process)))
   ;; Output-file
   (unless (output-file client-process)
     (setf (output-file client-process)
@@ -121,13 +121,12 @@
                           :type "out")
            (temp-directory client-process))))
   (when (probe-file (output-file client-process))
-    (delete-file (output-file client-process))))
+    (safe-delete-file (output-file client-process))))
 
 (defmethod terminate ((client-process client-process))
   "Terminates a client-process cleanly."
   (when (probe-file (lock-file client-process))
-    (loop with successful = nil until successful
-          do (setf successful (delete-file (lock-file client-process)))))
+    (safe-delete-file (lock-file client-process)))
   (uiop/launch-program:terminate-process (process client-process))
   (join-thread (reader-thread client-process)))
 
@@ -158,8 +157,7 @@
 (defun unlock (client-process)
   "Unlock client process."
   (when (probe-file (lock-file client-process))
-    (loop with successful = nil until successful
-        do (setf successful (delete-file (lock-file client-process))))))
+    (safe-delete-file (lock-file client-process))))
 
 (defun format-kwargs-list (kwargs)
   "Helper function for formatting the keyword
@@ -313,7 +311,7 @@
           
           (loop for file in (mapcar #'output-file processes)
                 when (probe-file file)
-                  do (delete-file file))
+                do (delete-file file))
           (format t "~%Output written to: ~a~%" output-file)
           
           ;; Finally kill the processes

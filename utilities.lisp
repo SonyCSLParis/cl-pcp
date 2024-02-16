@@ -39,6 +39,20 @@
   (force-output outputstream)
   (finish-output outputstream))
 
+(defun safe-delete-file (file &key (max-attempts 10))
+  (let ((file-deleted-p
+         (loop with successful = nil
+               for attempts from 1
+               until (or successful (> attempts max-attempts))
+               do
+                 (setf successful
+                       (handler-case (delete-file file)
+                         (file-error (error) nil)))
+                 (sleep 0.1)
+               finally (return successful))))
+    (unless file-deleted-p
+      (error "Could not delete the file ~a" file))))
+         
 ;; For demo purposes.
 (defun use-cpu (load)
   "Uses CPU for about load seconds (on i7)."
