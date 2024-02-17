@@ -332,7 +332,7 @@
                  (loop for process in client-processes
                        if (idle process)
                        return process
-                       else do (sleep 0.1)))
+                       else do (sleep 0.2)))
         finally (return idle-process)))
 
 (defun wait-until-all-process-idle (client-processes)
